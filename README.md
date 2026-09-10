@@ -1,6 +1,6 @@
-# Aws Server Deployment
+# AWS EC2 Deployment: Java / Spring Boot
 
-> **Provisioning, securing, configuring, and deploying a Java application on AWS EC2**
+> Manual provisioning, securing, configuring, and deploying a Java/Spring Boot application on an AWS EC2 instance.
 
 ![AWS](https://img.shields.io/badge/AWS-EC2-orange)
 ![Ubuntu](https://img.shields.io/badge/OS-Ubuntu-orange)
@@ -17,15 +17,17 @@
 * [Objectives](#objectives)
 * [Architecture](#architecture)
 * [Technology Stack](#technology-stack)
+* [Prerequisites](#prerequisites)
 * [AWS Infrastructure](#aws-infrastructure)
 * [Network and Security Configuration](#network-and-security-configuration)
 * [Server Configuration](#server-configuration)
 * [Application Build and Deployment](#application-build-and-deployment)
 * [Linux User Management](#linux-user-management)
-* [Deployment Workflow](#deployment-workflow)
+* [How to Reproduce This Deployment](#how-to-reproduce-this-deployment)
 * [Implementation Evidence](#implementation-evidence)
 * [Key Engineering Concepts](#key-engineering-concepts)
 * [Engineering Lessons](#engineering-lessons)
+* [Next Steps: From Manual to Production-Grade](#next-steps-from-manual-to-production-grade)
 * [Project Outcome](#project-outcome)
 * [Repository Structure](#repository-structure)
 * [Conclusion](#conclusion)
@@ -34,11 +36,9 @@
 
 ## Project Overview
 
-This project demonstrates the deployment of a Java/Spring Boot application onto a remote **AWS EC2 Linux server**.
+This project demonstrates the deployment of a Java/Spring Boot application onto a remote **AWS EC2 Linux server**, covering the full path from a locally built application artifact to a running, browser-verified application on cloud infrastructure.
 
-The implementation covers the complete path from a locally built application artifact to a running application on cloud infrastructure.
-
-The project combines:
+The implementation combines:
 
 * Cloud infrastructure provisioning
 * Linux server administration
@@ -50,13 +50,13 @@ The project combines:
 * Remote application execution
 * Linux user and privilege management
 
-The objective was not simply to create a virtual machine, but to establish a functioning remote application environment and understand the infrastructure responsibilities involved in operating an application on a cloud server.
+The goal was not simply to spin up a virtual machine, but to understand the full set of infrastructure responsibilities involved in operating an application on a cloud server, end to end, done manually, before automating any of it.
+
+> This deployment is intentionally manual. See [Next Steps](#next-steps-from-manual-to-production-grade) for how this would evolve toward a production setup.
 
 ---
 
 ## Objectives
-
-The project focused on the following engineering objectives:
 
 1. Provision a Linux-based compute instance on AWS.
 2. Configure controlled network access to the server.
@@ -71,7 +71,7 @@ The project focused on the following engineering objectives:
 
 ---
 
-# Architecture
+## Architecture
 
 ```text
 ┌──────────────────────────────┐
@@ -112,8 +112,6 @@ The project focused on the following engineering objectives:
 
 ### Deployment Model
 
-The deployment follows a simple separation of responsibilities:
-
 **Local environment**
 
 * Application source code
@@ -128,37 +126,47 @@ The deployment follows a simple separation of responsibilities:
 * Network security
 * Application execution
 
-This separation reflects a fundamental cloud deployment model: the application is developed and packaged locally while the runtime environment is hosted on remote infrastructure.
+This separation reflects a fundamental cloud deployment model: the application is developed and packaged locally, while the runtime environment is hosted on remote infrastructure.
 
 ---
 
-# Technology Stack
+## Technology Stack
 
 | Layer            | Technology               |
 | ---------------- | ------------------------ |
 | Cloud Provider   | AWS                      |
-| Compute          | Amazon EC2               |
-| Operating System | Ubuntu 26.04 LTS         |
-| Architecture     | `x86_64`                 |
-| Instance Type    | `t3.medium`              |
-| Region           | `us-east-1`              |
-| Storage          | 8 GB                     |
-| Runtime          | OpenJDK 17               |
-| Application      | Java / Spring Boot       |
-| Build Tool       | Gradle                   |
-| Artifact         | `java-react-example.jar` |
-| Remote Access    | SSH                      |
-| File Transfer    | SCP                      |
-| Network Security | AWS Security Group       |
-| Application Port | `7071`                   |
+| Compute          | Amazon EC2                |
+| Operating System | Ubuntu 26.04 LTS          |
+| Architecture     | `x86_64`                  |
+| Instance Type    | `t3.medium`                |
+| Region           | `us-east-1`                |
+| Storage          | 8 GB                       |
+| Runtime          | OpenJDK 17                 |
+| Application      | Java / Spring Boot         |
+| Build Tool       | Gradle                     |
+| Artifact         | `java-react-example.jar`   |
+| Remote Access    | SSH                        |
+| File Transfer    | SCP                         |
+| Network Security | AWS Security Group          |
+| Application Port | `7071`                       |
 
 ---
 
-# AWS Infrastructure
+## Prerequisites
 
-## EC2 Configuration
+To reproduce this deployment yourself, you'll need:
 
-The application was deployed to an AWS EC2 instance configured with:
+* An AWS account with permissions to create EC2 instances and Security Groups
+* A local machine with the AWS CLI or Console access
+* Java 17 (JDK) and Gradle installed locally for building the artifact
+* An SSH key pair (`.pem`) for connecting to the instance
+* Basic familiarity with Linux command-line administration
+
+---
+
+## AWS Infrastructure
+
+### EC2 Configuration
 
 | Configuration    | Value            |
 | ---------------- | ---------------- |
@@ -168,15 +176,13 @@ The application was deployed to an AWS EC2 instance configured with:
 | Region           | `us-east-1`      |
 | Storage          | 8 GB             |
 
-### EC2 Instance
-
 ![EC2 Instance](screenshots/01-ec2-instance.png)
 
 The EC2 instance provides the compute layer on which the Linux operating system, Java runtime, and application execute.
 
 ---
 
-# Network and Security Configuration
+## Network and Security Configuration
 
 Network access was controlled using an AWS Security Group.
 
@@ -185,15 +191,11 @@ Network access was controlled using an AWS Security Group.
 | Port   | Protocol | Purpose            | Source        |
 | ------ | -------- | ------------------ | ------------- |
 | `22`   | TCP      | SSH administration | My IP address |
-| `7071` | TCP      | Application access | All sources   |
+| `7071` | TCP      | Application access  | All sources   |
 
-SSH access was restricted to my IP address rather than exposing the administrative interface broadly.
-
-Port `7071` was exposed for external access to the running application.
-
-Outbound traffic remained under the default AWS configuration.
-
-### Security Group Evidence
+* SSH access was restricted to my IP address rather than exposed broadly.
+* Port `7071` was opened for external application access.
+* Outbound traffic remained under the default AWS configuration.
 
 ![Security Group Configuration](screenshots/02-security-group.png)
 
@@ -201,376 +203,211 @@ The Security Group acts as the network access boundary for the EC2 instance, con
 
 ---
 
-# Server Configuration
+## Server Configuration
 
-## Remote SSH Access
+### Remote SSH Access
 
-The EC2 server was accessed remotely using SSH.
-
-The initial Linux account used for server access was:
+The EC2 server was accessed using the default Ubuntu account:
 
 ```text
 ubuntu
 ```
 
-The connection followed the standard SSH model:
-
 ```bash
 ssh -i "<private-key>.pem" ubuntu@<ec2-public-dns>
 ```
 
-Sensitive credentials and private key material are intentionally excluded from the repository.
-
-### SSH Connection Evidence
+> Sensitive credentials and private key material are intentionally excluded from this repository.
 
 ![SSH Connection](screenshots/03-ssh-connection.png)
 
----
+### Java Runtime
 
-## Java Runtime
-
-The server was configured with **OpenJDK 17**, providing the runtime required by the Spring Boot application.
-
-The environment was updated before Java installation:
+The server was configured with **OpenJDK 17**.
 
 ```bash
 sudo apt update
-```
-
-Java was installed with:
-
-```bash
 sudo apt install openjdk-17-jdk
-```
-
-The runtime was verified with:
-
-```bash
 java -version
 ```
-
-### Java Installation Evidence
 
 ![Java Installation](screenshots/04-java-installation.png)
 
 ---
 
-# Application Build and Deployment
+## Application Build and Deployment
 
-## Application
+### Build
 
-The deployed application is a Java/Spring Boot application packaged as:
-
-```text
-java-react-example.jar
-```
-
-The application was built locally using Gradle.
+The application is a Java/Spring Boot application, built locally with Gradle:
 
 ```bash
 ./gradlew build
 ```
 
-This generated the deployable JAR artifact used for the remote deployment.
-
-### Build Evidence
+This produces the deployable artifact: `build/libs/java-react-example.jar`
 
 ![Gradle Build](screenshots/05-gradle-build.png)
 
----
+### Artifact Transfer
 
-## Artifact Transfer
-
-The generated JAR file was transferred from the local development environment to the EC2 server using SCP.
+The JAR was transferred to the EC2 server via SCP:
 
 ```bash
 scp -i <private-key>.pem build/libs/java-react-example.jar ubuntu@<ec2-public-ip>:
 ```
 
-This represents a basic artifact deployment workflow:
-
-```text
-Source Code
-    ↓
-Gradle Build
-    ↓
-JAR Artifact
-    ↓
-SCP
-    ↓
-Remote EC2 Server
-```
-
-### Artifact Transfer Evidence
-
 ![JAR Transfer](screenshots/06-jar-transfer.png)
 
----
+### Execution
 
-## Application Execution
-
-The application was started on the EC2 instance using:
+The application was started on the instance:
 
 ```bash
 java -jar java-react-example.jar
 ```
 
-The application was configured to run on port `7071`.
-
-### Running Application
+The application runs on port `7071`.
 
 ![Application Running](screenshots/07-application-running.png)
 
----
-
-## Application Verification
-
-The running application was verified through a web browser using the EC2 public endpoint:
+### Verification
 
 ```text
 http://<ec2-public-ip>:7071/
 ```
 
-Successful browser access confirmed connectivity between the external client and the application running on the EC2 instance.
-
-### Browser Verification
+Successful browser access confirmed end-to-end connectivity between the external client and the application running on EC2.
 
 ![Application in Browser](screenshots/08-application-browser.png)
 
 ---
 
-# Linux User Management
+## Linux User Management
 
-A separate Linux user was created on the EC2 server as part of server administration and privilege management.
-
-The user was created with:
+A dedicated Linux user was created for server administration, rather than relying solely on the default `ubuntu` account:
 
 ```bash
 sudo adduser pierre
+sudo usermod -aG sudo pierre
 ```
 
-The user was also configured with sudo privileges.
-
-```bash
-sudo usermod -aG sudo <username>
-```
-
-This exercise provided practical experience with Linux identity and privilege management rather than relying solely on the initial administrative account.
-
-### Linux User Evidence
+This provided hands-on practice with Linux identity and privilege management.
 
 ![Linux User Management](screenshots/09-linux-user.png)
 
 ---
 
-# Deployment Workflow
+## How to Reproduce This Deployment
 
-The complete implementation can be represented as:
-
-```text
-┌─────────────────────┐
-│  Provision EC2      │
-└──────────┬──────────┘
-           ↓
-┌─────────────────────┐
-│ Configure Security  │
-│ Group               │
-└──────────┬──────────┘
-           ↓
-┌─────────────────────┐
-│ Establish SSH       │
-│ Access              │
-└──────────┬──────────┘
-           ↓
-┌─────────────────────┐
-│ Install Java 17     │
-└──────────┬──────────┘
-           ↓
-┌─────────────────────┐
-│ Build Application   │
-│ with Gradle         │
-└──────────┬──────────┘
-           ↓
-┌─────────────────────┐
-│ Generate JAR        │
-│ Artifact            │
-└──────────┬──────────┘
-           ↓
-┌─────────────────────┐
-│ Transfer Artifact   │
-│ using SCP           │
-└──────────┬──────────┘
-           ↓
-┌─────────────────────┐
-│ Execute Application │
-│ on EC2              │
-└──────────┬──────────┘
-           ↓
-┌─────────────────────┐
-│ Expose Port 7071    │
-└──────────┬──────────┘
-           ↓
-┌─────────────────────┐
-│ Browser Validation  │
-└──────────┬──────────┘
-           ↓
-┌─────────────────────┐
-│ Linux User          │
-│ Management          │
-└─────────────────────┘
-```
+1. Launch a `t3.medium` Ubuntu EC2 instance in your preferred region.
+2. Create a Security Group allowing SSH (port 22, your IP only) and your app port (e.g. 7071, open or restricted as needed).
+3. Connect via SSH using your key pair.
+4. Install Java 17 (`sudo apt update && sudo apt install openjdk-17-jdk`).
+5. Build the application locally with `./gradlew build`.
+6. Transfer the JAR to the instance with `scp`.
+7. Run the JAR on the instance with `java -jar <artifact>.jar`.
+8. Verify in a browser at `http://<ec2-public-ip>:<port>/`.
+9. (Optional) Create a dedicated non-root Linux user with sudo privileges for ongoing administration.
 
 ---
 
-# Implementation Evidence
-
-The repository contains visual evidence of the major stages of the implementation.
+## Implementation Evidence
 
 | Evidence                 | Demonstrates                      |
-| ------------------------ | --------------------------------- |
-| EC2 instance             | Cloud compute provisioning        |
-| Security Group           | Network access control            |
-| SSH connection           | Remote server administration      |
-| Java installation        | Runtime preparation               |
-| Gradle build             | Application packaging             |
-| JAR transfer             | Remote artifact deployment        |
-| Running application      | Application execution             |
-| Browser verification     | End-to-end connectivity           |
-| Linux user configuration | Identity and privilege management |
-
-The screenshots complement the technical documentation by providing direct evidence of the implemented environment.
+| ------------------------ | ---------------------------------- |
+| EC2 instance              | Cloud compute provisioning         |
+| Security Group            | Network access control             |
+| SSH connection            | Remote server administration       |
+| Java installation         | Runtime preparation                |
+| Gradle build               | Application packaging              |
+| JAR transfer               | Remote artifact deployment         |
+| Running application        | Application execution              |
+| Browser verification       | End-to-end connectivity            |
+| Linux user configuration   | Identity and privilege management  |
 
 ---
 
-# Key Engineering Concepts
+## Key Engineering Concepts
 
-## Infrastructure as a Service
+**Infrastructure as a Service:** compute infrastructure is provisioned and managed remotely rather than running the application entirely on a local workstation.
 
-The project demonstrates an IaaS model in which compute infrastructure is provisioned remotely and managed as part of the application environment.
+**Remote Server Administration:** SSH provides secure command-line access to configure and manage the remote Linux environment from a local machine.
 
-Instead of running the application entirely on a local workstation, the application runtime is hosted on cloud infrastructure.
+**Network Boundaries:** the AWS Security Group separates administrative access (SSH) from application access (port `7071`), reflecting the different trust and access requirements of each.
 
-## Remote Server Administration
-
-SSH provides secure command-line access to the EC2 server, allowing the remote Linux environment to be configured and managed from the local development machine.
-
-## Network Boundaries
-
-The AWS Security Group provides a network control layer around the EC2 instance.
-
-The configuration distinguishes between:
-
-* Administrative access through SSH
-* Application access through port `7071`
-
-This separation is important because infrastructure management interfaces and application interfaces have different access requirements.
-
-## Artifact-Based Deployment
-
-The application source code is transformed into a deployable JAR artifact through the Gradle build process.
-
-The resulting artifact is then transferred to the target environment and executed there.
+**Artifact-Based Deployment:** source code is compiled into a JAR artifact via Gradle, then transferred and executed on the target environment:
 
 ```text
-Source Code
-    ↓
-Build
-    ↓
-Artifact
-    ↓
-Transfer
-    ↓
-Runtime
+Source Code → Build → Artifact → Transfer → Runtime
 ```
 
-This establishes the basic foundation for more advanced CI/CD and automated deployment workflows.
+This is the conceptual foundation for CI/CD and automated deployment pipelines.
 
-## Linux Privilege Management
-
-Creating a separate Linux user and assigning appropriate administrative privileges provides practical experience with identity and access management at the operating-system level.
+**Linux Privilege Management:** creating a dedicated non-default user with scoped sudo access reflects standard operating-system-level identity and access management practice.
 
 ---
 
-# Engineering Lessons
+## Engineering Lessons
 
-### 1. Infrastructure and Application Layers Are Different
+**1. Infrastructure and application layers are different.**
+A working application depends on compute resources, OS, runtime dependencies, network access, security controls, and user privileges, not just code. The EC2 instance becomes part of the application's runtime environment, not just a remote machine.
 
-A working application requires more than application code.
+**2. Network configuration is part of deployment.**
+An application can run correctly and still be unreachable if the network layer doesn't permit the required traffic. Success required alignment between the app, its port, the Security Group, and client connectivity.
 
-The deployment also depends on:
+**3. Deployment requires an artifact, not source code.**
+Gradle produced a JAR that was transferred and executed remotely: the deployment unit, not the raw source. This is foundational to understanding artifact repositories and automated pipelines.
 
-* Compute resources
-* Operating system
-* Runtime dependencies
-* Network access
-* Security controls
-* User privileges
-
-The EC2 instance therefore becomes part of the application's runtime environment rather than simply being a remote machine.
-
-### 2. Network Configuration Is Part of Deployment
-
-An application can be running correctly while remaining inaccessible if the network layer does not permit the required traffic.
-
-The successful deployment therefore required alignment between:
-
-```text
-Application
-    +
-Application Port
-    +
-EC2 Security Group
-    +
-Client Connectivity
-```
-
-### 3. Deployment Requires an Artifact
-
-The application source code itself was not copied to the server as the deployment unit.
-
-Instead, Gradle produced a JAR artifact that was transferred and executed remotely.
-
-This is an important foundation for understanding artifact repositories and automated deployment pipelines.
-
-### 4. Server Access Requires Deliberate Security Controls
-
-SSH provides administrative access to the infrastructure, making the SSH boundary a security-sensitive component.
-
-Restricting SSH access to a known IP address reduces unnecessary exposure compared with unrestricted SSH access.
+**4. Server access requires deliberate security controls.**
+SSH is a security-sensitive boundary. Restricting it to a known IP materially reduces exposure compared to open access.
 
 ---
 
-# Project Outcome
+## Next Steps: From Manual to Production-Grade
 
-The final environment successfully demonstrated:
+This deployment was intentionally manual, to build first-hand understanding of each layer. A production version of this setup would add:
 
-* A provisioned AWS EC2 compute environment
-* Ubuntu Linux server configuration
+* **Process management:** run the app as a `systemd` service instead of a foreground `java -jar` process, so it survives reboots and crashes.
+* **Reverse proxy + TLS:** put Nginx in front of the app and serve over HTTPS instead of exposing the JVM directly on `7071`.
+* **Static addressing:** attach an Elastic IP so the public address doesn't change on instance restart.
+* **Secrets management:** move credentials and config out of the shell/environment and into AWS Secrets Manager or SSM Parameter Store.
+* **Infrastructure as Code:** provision the EC2 instance and Security Group with Terraform or CloudFormation instead of the console.
+* **CI/CD:** automate build, artifact, deploy with GitHub Actions instead of manual `scp`.
+* **Least-privilege runtime:** run the JVM as a non-root, application-specific Linux user rather than under an admin-capable account.
+* **Monitoring:** add basic health checks and logging (CloudWatch or equivalent).
+
+---
+
+## Project Outcome
+
+* Provisioned AWS EC2 compute environment
+* Configured Ubuntu Linux server
 * Restricted SSH access
-* Java 17 runtime configuration
-* Local Gradle application packaging
-* JAR artifact transfer to the cloud server
-* Remote execution of a Spring Boot application
-* Browser-based application verification
-* Application network exposure through port `7071`
-* Linux user creation
-* Sudo privilege configuration
+* Installed and verified Java 17 runtime
+* Packaged application locally with Gradle
+* Transferred JAR artifact to the cloud server
+* Executed the Spring Boot application remotely
+* Verified application via browser
+* Exposed application through port `7071`
+* Created a dedicated Linux user with sudo privileges
 
 The result is a complete, manually executed cloud deployment workflow from **local application build to remotely accessible application**.
 
 ---
 
-# Repository Structure
+## Repository Structure
 
 ```text
 AWS-Server-Deployment/
 │
 ├── README.md
 │
-├── java-react-app
+├── java-react-app/
 │   ├── build.gradle
-│   ├── gradle
-│   ├── build
+│   ├── gradle/
+│   └── build/
+│
 ├── src/
 │   ├── main/
 │   └── test/
@@ -591,32 +428,10 @@ AWS-Server-Deployment/
 └── ...
 ```
 
-The repository separates the application source and build configuration from the visual evidence documenting the infrastructure and deployment process.
-
 ---
 
-# Conclusion
+## Conclusion
 
-This project demonstrates the practical operation of a Java application on cloud infrastructure rather than limiting the implementation to local development.
+This project demonstrates the practical operation of a Java application on cloud infrastructure, spanning the infrastructure, OS, networking, runtime, application, and access-management layers required to move an app from a developer workstation to a remotely accessible cloud environment.
 
-The work spans the infrastructure, operating-system, networking, runtime, application, and access-management layers required to move an application from a developer workstation to a remotely accessible cloud environment.
-
-It establishes a foundation for more advanced engineering practices including automated builds, artifact management, CI/CD, infrastructure as code, service management, observability, and production-oriented cloud operations.
-
----
-
-## Project Status
-
-**Completed**
-
-* EC2 infrastructure provisioned
-* Linux server configured
-* SSH access established
-* Java 17 installed
-* Application packaged with Gradle
-* JAR transferred to EC2
-* Application deployed and executed
-* Port `7071` configured for application access
-* Application verified through browser
-* Linux user created
-* Sudo privileges configured
+It's a deliberate first step: manual, transparent, and fully understood, before layering in automation, infrastructure as code, and production hardening in future projects.
