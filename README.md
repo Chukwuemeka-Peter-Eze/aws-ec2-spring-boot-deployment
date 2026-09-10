@@ -390,7 +390,7 @@ This deployment was intentionally manual, to build first-hand understanding of e
 * Executed the Spring Boot application remotely
 * Verified application via browser
 * Exposed application through port `7071`
-* Created a dedicated Linux user with sudo privileges
+* Created a dedicated Linux user with sudo privileges.
 
 The result is a complete, manually executed cloud deployment workflow from **local application build to remotely accessible application**.
 
